@@ -11,7 +11,7 @@ concurrency:
   group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}
   cancel-in-progress: true
 jobs:
-  build-prokect:
+  package-project:
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout
@@ -21,12 +21,12 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - name: Build
+      - name: Package the Project
         run: mvn package
-      - name: Upload a Build Artifact
+      - name: Upload an Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: built-project
+          name: packaged-project
           path: target/wls-*.jar
           if-no-files-found: error
           overwrite: true
