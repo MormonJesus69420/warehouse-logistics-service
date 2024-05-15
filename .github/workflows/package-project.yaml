@@ -3,7 +3,10 @@ run-name: ${{ github.actor }} is packaging the project
 on:
   # This event should allow for manual workflow triggering
   workflow_dispatch:
+  # Run on push to main branch
   push:
+    branches:
+      - main
   # Runs every time a pull request is created or updated
   pull_request:
 concurrency:
@@ -21,6 +24,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+          architecture: x64
+          # Cache maven dependencies for quicker runs
+          cache: maven
       - name: Package the Project
         run: mvn package
       - name: Upload an Artifact
@@ -30,4 +36,3 @@ jobs:
           path: target/wls-*.jar
           if-no-files-found: error
           overwrite: true
-          
