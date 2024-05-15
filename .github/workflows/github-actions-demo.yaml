@@ -1,18 +1,33 @@
-name: GitHub Actions Demo
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
-on: [push]
+name: Package Project
+run-name: ${{ github.actor }} is packaging the project
+on:
+  # This event should allow for manual workflow triggering
+  workflow_dispatch:
+  push:
+  # Runs every time a pull request is created or updated
+  pull_request:
+concurrency:
+  # Define concurrency group name which will then be used to determine duplicate workflow runs
+  group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}
+  cancel-in-progress: true
 jobs:
-  Explore-GitHub-Actions:
-    runs-on: ubuntu-latest
+  build-prokect:
+    runs-on: "ubuntu-latest"
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Check out repository code
+      - name: Checkout
         uses: actions/checkout@v4
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
-        run: |
-          ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Build
+        run: mvn package
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-project
+          path: target/wls-*.jar
+          if-no-files-found: error
+          overwrite: true
+          
