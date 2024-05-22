@@ -55,10 +55,10 @@ jobs:
 
       - name: Test the Project
         run: |
-          echo ${{ env.$HTTP_PROXY_HOST }}
-          echo ${{ env.$HTTP_PROXY_PORT }}
-          echo ${{ env.$HTTPS_PROXY_HOST }}
-          echo ${{ env.$HTTPS_PROXY_PORT }}
+          echo ${{ env.HTTP_PROXY_HOST }}
+          echo ${{ env.HTTP_PROXY_PORT }}
+          echo ${{ env.HTTPS_PROXY_HOST }}
+          echo ${{ env.HTTPS_PROXY_PORT }}
           envsubst < .m2/settings.xml
           mvn ${{ env.MAVEN_CONFIG }} verify --fail-at-end
 
