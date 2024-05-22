@@ -23,7 +23,7 @@ concurrency:
 jobs:
   test-project:
     name: Build and Test the Project
-    runs-on: self-hosted-linux
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
