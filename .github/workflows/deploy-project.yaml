@@ -14,10 +14,6 @@ on:
 env:
   # Run in batch mode, produce errors, use settings file, set local repo
   MAVEN_CONFIG: -B -e -s .m2/settings.xml -Dmaven.repo.local=.m2/repository
-  HTTP_PROXY_HOST: ${{ secrets.HTTP_PROXY_HOST }}
-  HTTP_PROXY_PORT: ${{ secrets.HTTP_PROXY_PORT }}
-  HTTPS_PROXY_HOST: ${{ secrets.HTTPS_PROXY_HOST }}
-  HTTPS_PROXY_PORT: ${{ secrets.HTTPS_PROXY_PORT }}
 
 concurrency:
   # Define concurrency group name which will then be used to determine duplicate workflow runs
@@ -48,8 +44,21 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
+      - name: Import Secrets
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.VAULT_URL }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: secret/v1/application/k8s/mlt/proxy *
+
       - name: Test the Project
         run: |
+          echo ${{ env.$HTTP_PROXY_HOST }}
+          echo ${{ env.$HTTP_PROXY_PORT }}
+          echo ${{ env.$HTTPS_PROXY_HOST }}
+          echo ${{ env.$HTTPS_PROXY_PORT }}
           envsubst < .m2/settings.xml
           mvn ${{ env.MAVEN_CONFIG }} verify --fail-at-end
 
@@ -87,12 +96,21 @@ jobs:
         with:
           driver: docker
 
+      - name: Import Secrets
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.VAULT_URL }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: secret/v1/application/k8s/mlt/harbor *
+
       - name: Log in to Harbor Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.HARBOR_URL }}      # TODO: Consider switching to Vault secrets
-          username: ${{ secrets.HARBOR_USERNAME }} # TODO: Consider switching to Vault secrets
-          password: ${{ secrets.HARBOR_PASSWORD }} # TODO: Consider switching to Vault secrets
+          registry: ${{ env.HARBOR_URL }}
+          username: ${{ env.HARBOR_USERNAME }}
+          password: ${{ env.HARBOR_PASSWORD }}
 
       - name: Extract Metadata for Docker
         id: meta
@@ -128,15 +146,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Import Secrets
-        id: sec
         uses: hashicorp/vault-action@v3
         with:
           url: ${{ secrets.VAULT_URL }}
           method: approle
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            kv/team/mlt/secrets/k8s-stage *
+          secrets: secret/v1/application/k8s/mlt/k8s-stage *
 
       - name: Setup Kubectl
         uses: azure/setup-kubectl@v4 # TODO: Check if it needs some more config
@@ -145,12 +161,12 @@ jobs:
         run: | # TODO: Fix this to our config, "borrowed" it from Tekst team
           echo "Deploying to stage version ${{ env.APP_VERSION }}"
           sed -i "s/<version>/${{ env.APP_VERSION }}/g" k8s/stage/wls.yml
-          sed -i "s/<host_url>/${{ steps.sec.outputs.K8S_HOST_URL }}/g" k8s/stage/wls.yml
-          kubectl config set-cluster stagecl --server=${{ steps.sec.outputs.K8S_STAGE_SERVER }}
-          kubectl config set clusters.stagecl.certificate-authority-data ${{ steps.sec.outputs.K8S_STAGE_NB_NO_CA }}
-          kubectl config set-credentials ${{ steps.sec.outputs.K8S_STAGE_USER }} --token=${{ steps.sec.outputs.K8S_STAGE_NB_NO_TOKEN }}
-          kubectl config set-context tekst --cluster=stagecl --user=${{ steps.sec.outputs.K8S_STAGE_USER }} --namespace=tekst-stage
-          kubectl config use-context tekst
+          sed -i "s/<host_url>/${{ env.K8S_HOST_URL }}/g" k8s/stage/wls.yml
+          kubectl config set-cluster stagecl --server=${{ env.K8S_STAGE_SERVER }}
+          kubectl config set clusters.stagecl.certificate-authority-data ${{ env.K8S_STAGE_NB_NO_CA }}
+          kubectl config set-credentials ${{ env.K8S_STAGE_USER }} --token=${{ env.K8S_STAGE_NB_NO_TOKEN }}
+          kubectl config set-context mlt --cluster=stagecl --user=${{ env.K8S_STAGE_USER }} --namespace=mlt-stage
+          kubectl config use-context mlt
           kubectl config view
           kubectl version
           kubectl apply -f k8s/stage/wls.yml
@@ -167,7 +183,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Import Secrets
-        id: sec
         uses: hashicorp/vault-action@v3
         with:
           url: ${{ secrets.VAULT_URL }}
@@ -175,7 +190,7 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            kv/team/mlt/secrets/k8s-prod *
+            secret/v1/application/k8s/mlt/k8s-prod *
 
       - name: Setup Kubectl
         uses: azure/setup-kubectl@v4 # TODO: Check if it needs some more config
@@ -184,12 +199,12 @@ jobs:
         run: |
           echo "Deploying to production version ${{ env.APP_VERSION }}"
           sed -i "s/<version>/${{ env.APP_VERSION }}/g" k8s/prod/wls.yml
-          sed -i "s/<host_url>/${{ steps.sec.outputs.K8S_HOST_URL }}/g" k8s/prod/wls.yml
-          kubectl config set-cluster prodcl --server=${{ steps.sec.outputs.K8S_PROD_SERVER }}
-          kubectl config set clusters.prodcl.certificate-authority-data ${{ steps.sec.outputs.K8S_PROD_NB_NO_CA }}
-          kubectl config set-credentials ${{ steps.sec.outputs.K8S_PROD_USER }} --token=${{ steps.sec.outputs.K8S_PROD_NB_NO_TOKEN }}
-          kubectl config set-context tekst --cluster=prodcl --user=${{ steps.sec.outputs.K8S_PROD_USER }} --namespace=tekst-prod
-          kubectl config use-context tekst
+          sed -i "s/<host_url>/${{ env.K8S_HOST_URL }}/g" k8s/prod/wls.yml
+          kubectl config set-cluster prodcl --server=${{ env.K8S_PROD_SERVER }}
+          kubectl config set clusters.prodcl.certificate-authority-data ${{ env.K8S_PROD_NB_NO_CA }}
+          kubectl config set-credentials ${{ env.K8S_PROD_USER }} --token=${{ env.K8S_PROD_NB_NO_TOKEN }}
+          kubectl config set-context mlt --cluster=prodcl --user=${{ env.K8S_PROD_USER }} --namespace=mlt-prod
+          kubectl config use-context mlt
           kubectl config view
           kubectl version
           kubectl apply -f k8s/prod/wls.yml
