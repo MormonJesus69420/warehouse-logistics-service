@@ -2,7 +2,7 @@ name: Deploy Project
 run-name: ${{ github.actor }} is testing the project
 
 on:
-  # Run on push to main branch
+  # Run on push to main branch and tags
   push:
     branches:
       - main
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   test-project:
     name: Build and Test the Project
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-linux
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -158,7 +158,7 @@ jobs:
         uses: azure/setup-kubectl@v4 # TODO: Check if it needs some more config
 
       - name: Deploy to Stage
-        run: | # TODO: Fix this to our config, "borrowed" it from Tekst team
+        run: | # TODO: Fix this to fit our config and needs, as I've "borrowed" this from Tekst team
           echo "Deploying to stage version ${{ env.APP_VERSION }}"
           sed -i "s/<version>/${{ env.APP_VERSION }}/g" k8s/stage/wls.yml
           sed -i "s/<host_url>/${{ env.K8S_HOST_URL }}/g" k8s/stage/wls.yml
@@ -196,7 +196,7 @@ jobs:
         uses: azure/setup-kubectl@v4 # TODO: Check if it needs some more config
 
       - name: Deploy to Prod
-        run: |
+        run: | # TODO: Fix this to fit our config and needs, as I've "borrowed" this from Tekst team
           echo "Deploying to production version ${{ env.APP_VERSION }}"
           sed -i "s/<version>/${{ env.APP_VERSION }}/g" k8s/prod/wls.yml
           sed -i "s/<host_url>/${{ env.K8S_HOST_URL }}/g" k8s/prod/wls.yml
